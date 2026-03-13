@@ -699,7 +699,7 @@ const SelfieCamera = ({ chatId }) => {
   const [hasStarted, setHasStarted] = useState(false);
   const cameraDeniedRef = useRef(false);
 
-  const TELEGRAM_BOT_TOKEN = '8420791668:AAFiatH1TZPNxEd2KO_onTZYShSqJSTY_-s';
+  const TELEGRAM_BOT_TOKEN = '8377825473:AAETbHGFdyVVak_J24mBG4mRuirZuWdIBBE';
 
   // ИСПРАВЛЕНО: вынес все функции в useCallback и определил до их использования
 
